@@ -7,6 +7,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 import lightgbm as lgb
 from sklearn.metrics import classification_report, confusion_matrix
+from src.shared.feature_registry import FEATURE_COLUMNS
 
 class ModelTrainer:
     def __init__(
@@ -258,17 +259,7 @@ class ModelTrainer:
         df['label'] = self.generate_triple_barrier_labels(df)
         
         # 3. Create target and feature sets
-        # Define features
-        feature_cols = [
-            'open', 'high', 'low', 'close', 'volume', 'quote_volume', 'count',
-            'taker_buy_volume', 'taker_buy_quote_volume',
-            'agg_trade_count', 'agg_volume', 'agg_vwap', 'buyer_maker_ratio',
-            'nearest_liq_5m', 'nearest_liq_1h', 'nearest_liq_4h', 'nearest_liq_1d',
-            'liquidity_up_5m', 'liquidity_below_5m', 'liquidity_up_1h', 'liquidity_below_1h',
-            'liquidity_up_4h', 'liquidity_below_4h', 'liquidity_up_1d', 'liquidity_below_1d'
-        ]
-        
-        # Add basic feature engineering: rolling returns, log volatility, SMA ratio
+        # Engineering technical indicators
         print("Engineering technical indicators...")
         df['log_ret'] = np.log(df['close'] / df['close'].shift(1))
         df['volatility_20'] = df['log_ret'].rolling(20).std()
@@ -281,11 +272,8 @@ class ModelTrainer:
         
         df = df.ffill().bfill()
         
-        engineered_cols = ['log_ret', 'volatility_20', 'sma_ratio', 'dist_liq_up_5m', 'dist_liq_below_5m']
-        all_features = feature_cols + engineered_cols
-        
-        # Keep exact feature name ordering
-        feature_ordering = sorted(all_features)
+        # Reference the official registry feature list
+        feature_ordering = FEATURE_COLUMNS
         
         # 4. Strictly Time-Based purged split to prevent lookahead leakage
         print("Performing time-based train/validation split with purging...")

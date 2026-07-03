@@ -1,0 +1,37 @@
+"""
+Feature Registry Module
+Defines the official feature set and ordering expected by the Level 4 LightGBM model.
+"""
+
+FEATURE_COLUMNS = [
+    "agg_trade_count",
+    "agg_volume",
+    "agg_vwap",
+    "buyer_maker_ratio",
+    "close",
+    "count",
+    "dist_liq_below_5m",
+    "dist_liq_up_5m",
+    "high",
+    "liquidity_below_1d",
+    "liquidity_below_1h",
+    "liquidity_below_4h",
+    "liquidity_below_5m",
+    "liquidity_up_1d",
+    "liquidity_up_1h",
+    "liquidity_up_4h",
+    "liquidity_up_5m",
+    "log_ret",
+    "low",
+    "nearest_liq_1d",
+    "nearest_liq_1h",
+    "nearest_liq_4h",
+    "nearest_liq_5m",
+    "open",
+    "quote_volume",
+    "sma_ratio",
+    "taker_buy_quote_volume",
+    "taker_buy_volume",
+    "volatility_20",
+    "volume"
+]

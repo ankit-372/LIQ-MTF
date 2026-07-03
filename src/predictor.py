@@ -3,6 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 import lightgbm as lgb
+from src.shared.feature_registry import FEATURE_COLUMNS
 
 class ModelPredictor:
     def __init__(
@@ -15,12 +16,8 @@ class ModelPredictor:
         self.model_dir = model_dir
         self.confidence_threshold = confidence_threshold
         
-        # Load feature ordering
-        feat_order_file = os.path.join(model_dir, "features_order.json")
-        if not os.path.exists(feat_order_file):
-            raise FileNotFoundError(f"Feature ordering file not found: {feat_order_file}. Run training first.")
-        with open(feat_order_file, 'r') as f:
-            self.feature_ordering = json.load(f)
+        # Use feature ordering from registry
+        self.feature_ordering = FEATURE_COLUMNS
             
         # Load model
         model_file = os.path.join(model_dir, "model.txt")
