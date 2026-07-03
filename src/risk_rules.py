@@ -139,7 +139,7 @@ class RiskEngine:
         if not override_triggered:
             closest_dist = min(dist_up, dist_below)
             if closest_dist < 0.0025:
-                multiplier = 0.70
+                multiplier = 0.50
                 size_multiplier *= multiplier
                 checks_log.append({"rule": 10, "name": "Liquidity Proximity Buffer", "result": "MODIFY", "multiplier": multiplier})
             else:

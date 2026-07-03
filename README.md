@@ -29,6 +29,7 @@ All implementations in this module adhere strictly to memory-safe chunked proces
 | **[tests/tune_hyperparameters.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/tune_hyperparameters.py)** | Script | Automated grid search script evaluating class weights (`w-buy`, `w-sell`), tree depths, and leaves directly on validation dataset cache. |
 | **[tests/test_agent_risk_pipeline.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/test_agent_risk_pipeline.py)** | Script | Integration script simulating scenario packaging, pattern queries, portfolio tracking, and risk check executions. |
 | **[tests/test_execution_safety_pipeline.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/test_execution_safety_pipeline.py)** | Script | Integration script simulating and verifying simulated fills, MFE/MAE tracking, SQLite database journaling, and multi-level circuit breaker safety halts. |
+| **[tests/test_suite.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/test_suite.py)** | Script | Complete unit test suite containing 27 detailed tests for L4 predictor, L5 Agent, and L5 Executor modules. |
 
 ---
 
@@ -99,6 +100,12 @@ python -m tests.test_agent_risk_pipeline
 Verify simulated fills, MFE/MAE excursions, database journaling, counterfactual logging, and multi-level circuit breaker safety blocks:
 ```bash
 python -m tests.test_execution_safety_pipeline
+```
+
+### 7. Run Comprehensive Unit Test Suite
+Execute all 27 unit tests verifying model loading, schemas, agent risk parameters, portfolio tracking, SQLite journaling, paper trading, and circuit breaker logic:
+```bash
+python -m tests.test_suite
 ```
 
 ---
