@@ -174,7 +174,45 @@ else:
 
 ---
 
-## 📊 5. Benchmark Performance & Validation Results
+## 🎛️ 5. Decoupled Event-Driven Decision & Execution Pipeline
+
+The execution architecture utilizes a pub-sub model centered around the central `EventBus` (`src/shared/event_bus.py`) to maintain strict separation of concerns between prediction, risk checks, safety circuit breakers, logging, and order routing:
+
+### A. Pipeline Event Flow Diagram
+
+```mermaid
+graph TD
+    A[Price & Order Book Feed] -->|Trigger| B[ModelPredictor]
+    B -->|Publish ML_SIGNAL_GENERATED| C[ScenarioManager]
+    C -->|Aggregate & Freeze Snapshot| D[SCENARIO_CREATED Event]
+    D -->|Consume| E[PatternMatcher & RiskEngine]
+    E -->|Query SQLite History| F[Pattern Expectancy Stats]
+    E -->|Run 10 Risk Checks| G[AGENT_DECISION_MADE Event]
+    G -->|Approved Trade| H[Paper/Live Executors]
+    G -->|Overridden/Blocked Trade| I[Journal Log & Counterfactual Tracker]
+    H -->|Position Entry & Bracket Orders| J[Excursion Tracking Loop]
+    J -->|SL/TP Hit or Timeout| K[TRADE_CLOSED Event]
+    K -->|Halt Check / Drawdown Liquidate| L[CircuitBreaker]
+    K -->|PnL Outcome Update| M[JournalManager]
+```
+
+### B. Event Definitions & Payload Schemas
+*   **`ML_SIGNAL_GENERATED`**: Fired when a new prediction is made.
+    *   *Payload*: `{"market_tick": dict, "ml_prediction": dict}`
+*   **`SCENARIO_CREATED`**: Fired when a frozen snapshot is generated.
+    *   *Payload*: `{"scenario": MappingProxyType}` (25 fields covering OHLC, volume, indicators, book liquidity, trend, signal, confidence)
+*   **`AGENT_DECISION_MADE`**: Fired when position sizing and overrides are finalized.
+    *   *Payload*: `{"trade_id": UUID, "timestamp": int, "symbol": str, "signal": str, "base_size": float, "final_size": float, "override_triggered": bool, "override_reason": str, "checks_evaluated": list, "scenario": dict}`
+*   **`TRADE_CLOSED`**: Fired on live or simulated trade completions.
+    *   *Payload*: `{"trade_id": UUID, "symbol": str, "side": str, "entry_price": float, "exit_price": float, "exit_time": int, "exit_reason": str, "realized_pnl": float, "mfe": float, "mae": float, "is_counterfactual": bool}`
+*   **`API_REJECTION`**: Fired on REST API errors to monitor execution health.
+    *   *Payload*: `{"timestamp": int, "reason": str}`
+*   **`WS_HEARTBEAT`**: Fired on WebSocket updates to track latency.
+    *   *Payload*: `{"latency_ms": float}`
+
+---
+
+## 📊 6. Benchmark Performance & Validation Results
 
 The model was evaluated on `673,572` contiguous 1-minute validation rows spanning from `Feb 13, 2025` to `May 26, 2026` (~1.3 years).
 
