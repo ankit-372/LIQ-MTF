@@ -49,11 +49,11 @@ class PortfolioTracker:
         entry_price = pos["entry_price"]
         size = pos["size"]
         
-        # Calculate raw dollar P&L
+        # Calculate normalized USD P&L (size represents trade value in USD)
         if side == "BUY":
-            trade_pnl = size * (exit_price - entry_price)
+            trade_pnl = size * (exit_price - entry_price) / entry_price
         else:
-            trade_pnl = size * (entry_price - exit_price)
+            trade_pnl = size * (entry_price - exit_price) / entry_price
             
         # Update balance and realize P&L
         self.session_pnl += trade_pnl

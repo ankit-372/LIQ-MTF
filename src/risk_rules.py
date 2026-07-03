@@ -1,11 +1,12 @@
 import time
+import uuid
 from src.shared.event_bus import EventBus
 
 class RiskEngine:
     def __init__(self, base_size: float = 1000.0):
         self.base_size = base_size
 
-    def evaluate_rules(self, scenario: dict, portfolio, pattern_matches: dict, symbol: str = "BTCUSDT") -> dict:
+    def evaluate_rules(self, scenario: dict, portfolio, pattern_matches: dict, symbol: str = "BTCUSDT", circuit_breaker = None) -> dict:
         """
         Evaluates 10 risk rules in sequence.
         - OVERRIDE checks immediately abort trading (size = 0).
@@ -17,6 +18,14 @@ class RiskEngine:
         override_triggered = False
         override_reason = None
         checks_log = []
+        
+        # 0. Circuit Breaker Override (ALWAYS overrides Agent)
+        if circuit_breaker and circuit_breaker.is_blocked():
+            override_triggered = True
+            override_reason = f"Circuit Breaker Triggered: {circuit_breaker.pause_reason}"
+            checks_log.append({"rule": 0, "name": "Circuit Breaker Block", "result": "OVERRIDE", "reason": override_reason})
+        else:
+            checks_log.append({"rule": 0, "name": "Circuit Breaker Block", "result": "PASS"})
         
         # Pull parameters from inputs
         close = float(scenario.get("close", 0.0))
@@ -150,6 +159,7 @@ class RiskEngine:
                 checks_log.append({"rule": "FLOOR", "name": "Size Floor Constraint", "result": "FLOOR_APPLIED", "value": floor_size})
                 
         decision_data = {
+            "trade_id": str(uuid.uuid4()),
             "timestamp": int(time.time()),
             "symbol": symbol,
             "signal": ml_signal,
@@ -158,7 +168,8 @@ class RiskEngine:
             "base_size": self.base_size,
             "final_size": final_size,
             "compounded_multiplier": size_multiplier,
-            "checks_evaluated": checks_log
+            "checks_evaluated": checks_log,
+            "scenario": scenario
         }
         
         # Publish AGENT_DECISION_MADE event to Central Event Bus

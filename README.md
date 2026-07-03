@@ -16,6 +16,10 @@ All implementations in this module adhere strictly to memory-safe chunked proces
 | **[src/pattern_matcher.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/pattern_matcher.py)** | Module | Interfaces with SQLite to find past signals matching the current scenario and returns win_rate and expectancy. |
 | **[src/portfolio.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/portfolio.py)** | Module | Tracks open positions, session realized P&L, consecutive losing streaks, and running drawdown from peak balance. |
 | **[src/risk_rules.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/risk_rules.py)** | Module | Risk Engine that runs 10 sequential checks to compute position sizing modifiers, apply overrides, floor sizes at 10%, and trigger execution. |
+| **[src/paper_executor.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/paper_executor.py)** | Module | Simulated exchange executor. Handles tick-level fills, Stop Loss/Take Profit hits, MFE/MAE calculations, and tracks virtual counterfactual trades for overridden signals. |
+| **[src/live_executor.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/live_executor.py)** | Module | Live exchange executor. Interacts with Binance Futures REST API to place entry and bracket TP/SL orders, polls fills, and triggers Telegram bot alerts on execution failure. |
+| **[src/circuit_breaker.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/circuit_breaker.py)** | Module | Safety firewall. Manages auto-resuming halts on SL streaks or rejections, handles latency disconnect checks, and executes hard locks with emergency liquidations on critical drawdown (>5%). |
+| **[src/journal.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/journal.py)** | Module | SQLite ledger manager (`journal.db`). Logs every decision snapshot, signal, and execution outcome (exit prices, timing, realized P&L, excursion metrics). |
 | **[src/shared/feature_registry.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/shared/feature_registry.py)** | Module | Single source of truth registering all 30 features and ordering expected by the model. |
 | **[src/shared/event_bus.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/shared/event_bus.py)** | Module | Central Event Bus mediating system events (e.g. `ML_SIGNAL_GENERATED`, `SCENARIO_CREATED`, `AGENT_DECISION_MADE`). |
 | **[models/](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/models)** | Directory | Stores the active trained booster (`model.txt`), feature column ordering (`features_order.json`), run parameters (`metadata.json`), and evaluation metrics (`evaluation_report.txt`). |
@@ -24,6 +28,7 @@ All implementations in this module adhere strictly to memory-safe chunked proces
 | **[tests/simulate_backtest.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/simulate_backtest.py)** | Script | Historical backtester evaluating trade execution, Win Rate, Net P&L, and Profit Factor across custom confidence thresholds. |
 | **[tests/tune_hyperparameters.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/tune_hyperparameters.py)** | Script | Automated grid search script evaluating class weights (`w-buy`, `w-sell`), tree depths, and leaves directly on validation dataset cache. |
 | **[tests/test_agent_risk_pipeline.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/test_agent_risk_pipeline.py)** | Script | Integration script simulating scenario packaging, pattern queries, portfolio tracking, and risk check executions. |
+| **[tests/test_execution_safety_pipeline.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/test_execution_safety_pipeline.py)** | Script | Integration script simulating and verifying simulated fills, MFE/MAE tracking, SQLite database journaling, and multi-level circuit breaker safety halts. |
 
 ---
 
@@ -88,6 +93,12 @@ python -m tests.simulate_backtest --confidence 0.50 --tp 0.01 --sl 0.01
 Verify the end-to-end agent decision pipeline: scenario generation, SQLite pattern matches, portfolio tracking, and risk rules checks:
 ```bash
 python -m tests.test_agent_risk_pipeline
+```
+
+### 6. Run Execution & Safety Pipeline Simulation
+Verify simulated fills, MFE/MAE excursions, database journaling, counterfactual logging, and multi-level circuit breaker safety blocks:
+```bash
+python -m tests.test_execution_safety_pipeline
 ```
 
 ---

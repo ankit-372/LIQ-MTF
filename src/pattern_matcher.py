@@ -126,7 +126,7 @@ class PatternMatcher:
         # Calculate win rate and expectancy
         wins = sum(1 for pnl in results if pnl > 0)
         win_rate = float(wins / num_matches)
-        expectancy = float(np.mean(results))
+        expectancy = float(sum(results) / num_matches)
         
         return {
             "status": "Success",
