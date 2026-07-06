@@ -28,13 +28,11 @@ prices = [
 for price in prices:
 
     snapshot = engine.process_candle(
-
-        close=price,
-
-        liquidity_up_5m=price + 5,
-
-        liquidity_below_5m=price - 5,
-
+        close=118,
+        high=120,
+        low=116,
+        liquidity_up_5m=123,
+        liquidity_below_5m=113,
     )
 
 print(snapshot)

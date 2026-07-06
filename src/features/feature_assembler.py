@@ -20,6 +20,10 @@ class FeatureAssembler:
 
             close=candle["close"],
 
+            high=candle["high"],
+
+            low=candle["low"],
+
             liquidity_up_5m=liquidity_snapshot["liquidity_up_5m"],
 
             liquidity_below_5m=liquidity_snapshot["liquidity_below_5m"],
