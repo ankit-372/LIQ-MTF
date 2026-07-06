@@ -1,4 +1,4 @@
-from order_flow import OrderFlow
+from src.ingest.order_flow import OrderFlow
 
 flow = OrderFlow()
 

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from src.core import event_bus
 
 
 @dataclass
@@ -75,6 +76,12 @@ class CandleBuilder:
             "volume": candle.volume,
 
         }
+
+        # Publish to Event Bus
+        event_bus.publish(
+            f"CANDLE_CLOSED_{interval.upper()}",
+            event
+        )
 
         return event
 

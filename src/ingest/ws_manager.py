@@ -5,9 +5,9 @@ import orjson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from candle_builder import CandleBuilder
-from order_flow import OrderFlow
-from book_tracker import BookTracker
+from src.ingest.candle_builder import CandleBuilder
+from src.ingest.order_flow import OrderFlow
+from src.ingest.book_tracker import BookTracker
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,9 +56,15 @@ class WSManager:
 
         self.order_flow.process_trade(payload)
 
+
     def handle_book_ticker(self, payload):
 
         self.book_tracker.process_book(payload)
+
+        book_event = self.book_tracker.publish_snapshot()
+
+        logging.info(book_event)
+
 
     def handle_kline_5m(self, payload):
 
@@ -75,6 +81,7 @@ class WSManager:
 
             logging.info(flow_event)
 
+
     def handle_kline_1h(self, payload):
 
         candle_event = self.candle_builder.process_kline(
@@ -85,6 +92,7 @@ class WSManager:
         if candle_event:
 
             logging.info(candle_event)
+
 
     def handle_kline_4h(self, payload):
 

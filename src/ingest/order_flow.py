@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from src.core import event_bus
 
 
 @dataclass
@@ -125,6 +126,12 @@ class OrderFlow:
             "large_trades": self.large_trades.copy(),
 
         }
+
+        # Publish for downstream consumers
+        event_bus.publish(
+            "FLOW_SNAPSHOT_READY",
+            event,
+        )
 
         self.reset_window()
 

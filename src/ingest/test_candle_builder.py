@@ -1,4 +1,4 @@
-from candle_builder import CandleBuilder
+from src.ingest.candle_builder import CandleBuilder
 
 builder = CandleBuilder()
 
