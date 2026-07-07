@@ -70,7 +70,7 @@ class L4ModelTests(unittest.TestCase):
     def test_model_booster_loading(self):
         """Test L4.1: Verifies that ModelPredictor initializes and loads the Booster model correctly."""
         self.assertIsNotNone(self.predictor.model)
-        self.assertEqual(len(self.predictor.feature_ordering), 30)
+        self.assertEqual(len(self.predictor.feature_ordering), 45)
 
     def test_inference_without_error(self):
         """Test L4.2: Verifies that inference runs successfully and generates expected signal structure."""

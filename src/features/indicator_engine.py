@@ -38,11 +38,11 @@ class IndicatorEngine:
 
         self.window = window
 
-        self.close_history = deque(maxlen=200)
-        self.high_history = deque(maxlen=200)
-        self.low_history = deque(maxlen=200)
+        self.close_history = deque(maxlen=300)
+        self.high_history = deque(maxlen=300)
+        self.low_history = deque(maxlen=300)
 
-        self.log_return_history = deque(maxlen=200)
+        self.log_return_history = deque(maxlen=300)
 
         self.ema9 = None
         self.ema21 = None
@@ -51,7 +51,7 @@ class IndicatorEngine:
         self.macd_history = deque(maxlen=9)
         self.gain_history = deque(maxlen=14)
         self.loss_history = deque(maxlen=14)
-        self.true_range_history = deque(maxlen=14)
+        self.true_range_history = deque(maxlen=300)
 
     def process_candle(
         self,
@@ -200,10 +200,8 @@ class IndicatorEngine:
 
         self.true_range_history.append(true_range)
 
-        atr_14 = (
-            sum(self.true_range_history)
-            / len(self.true_range_history)
-        )
+        recent_tr_14 = list(self.true_range_history)[-14:]
+        atr_14 = sum(recent_tr_14) / len(recent_tr_14) if recent_tr_14 else 0.0
 
         # ----------------------------------
         # MACD

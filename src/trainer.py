@@ -261,14 +261,104 @@ class ModelTrainer:
         # 3. Create target and feature sets
         # Engineering technical indicators
         print("Engineering technical indicators...")
-        df['log_ret'] = np.log(df['close'] / df['close'].shift(1))
-        df['volatility_20'] = df['log_ret'].rolling(20).std()
-        df['sma_20'] = df['close'].rolling(20).mean()
-        df['sma_ratio'] = df['close'] / df['sma_20']
         
-        # Price relation to liquidity metrics
-        df['dist_liq_up_5m'] = (df['liquidity_up_5m'] - df['close']) / df['close']
-        df['dist_liq_below_5m'] = (df['close'] - df['liquidity_below_5m']) / df['close']
+        # Helper functions
+        def calc_atr(high, low, close, n=14):
+            tr = pd.concat([
+                high - low,
+                (high - close.shift(1)).abs(),
+                (low - close.shift(1)).abs()
+            ], axis=1).max(axis=1)
+            return tr.rolling(n).mean()
+
+        def calc_rsi(close, n=14):
+            diff = close.diff()
+            gain = diff.clip(lower=0)
+            loss = -diff.clip(upper=0)
+            avg_gain = gain.rolling(n).mean()
+            avg_loss = loss.rolling(n).mean()
+            rs = avg_gain / avg_loss
+            return 100 - (100 / (1 + rs))
+
+        def calc_ema(close, n):
+            return close.ewm(span=n, adjust=False).mean()
+
+        df['log_ret'] = np.log(df['close'] / df['close'].shift(1))
+
+        # 5m indicators (scaled to 1m resolution where 5m = 5 rows)
+        ema9_5m = calc_ema(df['close'], 45)
+        ema21_5m = calc_ema(df['close'], 105)
+        macd_5m = ema9_5m - ema21_5m
+        macd_signal_5m = macd_5m.ewm(span=45, adjust=False).mean()
+        
+        sma20_5m = df['close'].rolling(100).mean()
+        std20_5m = df['close'].rolling(100).std()
+        bb_upper_5m = sma20_5m + 2 * std20_5m
+        bb_lower_5m = sma20_5m - 2 * std20_5m
+
+        df['pa_atr_5m'] = calc_atr(df['high'], df['low'], df['close'], 70)
+        df['pa_rsi_14_5m'] = calc_rsi(df['close'], 70)
+        df['pa_ema_9_5m'] = ema9_5m
+        df['pa_ema_21_5m'] = ema21_5m
+        df['pa_ema_cross_5m'] = (ema9_5m > ema21_5m).astype(float)
+        df['pa_macd_hist_5m'] = macd_5m - macd_signal_5m
+        df['pa_boll_pct_5m'] = (df['close'] - bb_lower_5m) / (bb_upper_5m - bb_lower_5m)
+        df['pa_return_5m'] = np.log(df['close'] / df['close'].shift(5))
+
+        # 1h indicators (1h = 60 rows)
+        ema9_1h = calc_ema(df['close'], 540)
+        ema21_1h = calc_ema(df['close'], 1260)
+        macd_1h = ema9_1h - ema21_1h
+        macd_signal_1h = macd_1h.ewm(span=540, adjust=False).mean()
+
+        df['pa_atr_1h'] = calc_atr(df['high'], df['low'], df['close'], 840)
+        df['pa_rsi_14_1h'] = calc_rsi(df['close'], 840)
+        df['pa_ema_9_1h'] = ema9_1h
+        df['pa_ema_21_1h'] = ema21_1h
+        df['pa_ema_cross_1h'] = (ema9_1h > ema21_1h).astype(float)
+        df['pa_macd_hist_1h'] = macd_1h - macd_signal_1h
+        df['pa_return_1h'] = np.log(df['close'] / df['close'].shift(60))
+
+        # 4h indicators (4h = 240 rows)
+        df['pa_atr_4h'] = calc_atr(df['high'], df['low'], df['close'], 3360)
+
+        # Volatility ATR ratio (24h = 288 periods of 5m = 1440 rows of 1m)
+        avg_tr_24h = df['pa_atr_5m'].rolling(1440).mean()
+        df['vol_atr_ratio'] = df['pa_atr_5m'] / avg_tr_24h
+        df['vol_regime'] = np.where(df['vol_atr_ratio'] < 0.8, 0.0,
+                           np.where(df['vol_atr_ratio'] < 1.2, 1.0,
+                           np.where(df['vol_atr_ratio'] < 2.0, 2.0, 3.0)))
+
+        # Calendar features
+        df['hour'] = df.index.hour + df.index.minute / 60.0
+        df['cal_hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24.0)
+        df['cal_hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24.0)
+        df['day'] = df.index.weekday + df['hour'] / 24.0
+        df['cal_day_sin'] = np.sin(2 * np.pi * df['day'] / 7.0)
+        df['cal_day_cos'] = np.cos(2 * np.pi * df['day'] / 7.0)
+
+        # Order Flow features
+        df_delta_1m = (1 - 2 * df['buyer_maker_ratio']) * df['agg_volume']
+        df['flow_delta_5m'] = df_delta_1m.rolling(5).sum()
+        df['flow_cvd'] = df_delta_1m.cumsum()
+        df['flow_cvd_slope'] = df['flow_cvd'] - df['flow_cvd'].shift(15)
+        df['flow_buy_sell_ratio'] = df['buyer_maker_ratio'].rolling(5).mean()
+        df['flow_large_trade_ratio'] = 0.0
+        df['flow_buy_volume'] = ((1 - df['buyer_maker_ratio']) * df['agg_volume']).rolling(5).sum()
+        df['flow_sell_volume'] = (df['buyer_maker_ratio'] * df['agg_volume']).rolling(5).sum()
+
+        # Liquidity distances
+        df['lvl_dist_above_5m'] = (df['nearest_liq_5m'] - df['close']) / df['close']
+        df['lvl_dist_below_5m'] = (df['close'] - df['nearest_liq_5m']) / df['close']
+        df['lvl_dist_above_1h'] = (df['nearest_liq_1h'] - df['close']) / df['close']
+        df['lvl_dist_below_1h'] = (df['close'] - df['nearest_liq_1h']) / df['close']
+        df['lvl_dist_above_4h'] = (df['nearest_liq_4h'] - df['close']) / df['close']
+        df['lvl_dist_below_4h'] = (df['close'] - df['nearest_liq_4h']) / df['close']
+        df['lvl_active_count'] = 0.0
+        df['lvl_recent_sweep_count'] = 0.0
+        df['lvl_nearest_confluence'] = 0.0
+
+        # Raw columns are already present in df
         
         df = df.ffill().bfill()
         
