@@ -29,8 +29,8 @@ class ModelTrainer:
         reg_alpha: float = 0.0,
         reg_lambda: float = 0.0,
         class_weight_wait: float = 1.0,
-        class_weight_buy: float = 1.0,
-        class_weight_sell: float = 1.0
+        class_weight_buy: float = 19.0,
+        class_weight_sell: float = 17.0
     ):
         self.klines_path = klines_path
         self.aggtrades_path = aggtrades_path
@@ -367,19 +367,31 @@ class ModelTrainer:
         
         # 4. Strictly Time-Based purged split to prevent lookahead leakage
         print("Performing time-based train/validation split with purging...")
-        total_len = len(df)
-        split_idx = int(total_len * self.train_val_split_ratio)
         
-        train_end_time = df.index[split_idx]
-        val_start_time = train_end_time + pd.Timedelta(minutes=self.lookahead_window)
+        # Filter training and validation sets by exact dates from process.pdf
+        train_df = df.loc[:"2025-06-30 23:59:59"]
+        val_df = df.loc["2025-07-01 00:00:00":"2025-12-31 23:59:59"]
         
-        # Purged split
-        train_df = df.loc[:train_end_time]
-        val_df = df.loc[val_start_time:]
-        
+        # Purge gap calculation/logging
+        if len(train_df) > 0 and len(val_df) > 0:
+            train_end_time = train_df.index.max()
+            val_start_time = val_df.index.min()
+            # Enforce lookahead window purge
+            train_df = df.loc[:train_end_time]
+            val_df = df.loc[val_start_time + pd.Timedelta(minutes=self.lookahead_window):]
+        else:
+            # Fallback to ratio split if dataset is small or doesn't span dates (e.g. in tests)
+            print("Dataset does not cover full 2020-2025 range. Falling back to ratio split...")
+            total_len = len(df)
+            split_idx = int(total_len * self.train_val_split_ratio)
+            train_end_time = df.index[split_idx]
+            val_start_time = train_end_time + pd.Timedelta(minutes=self.lookahead_window)
+            train_df = df.loc[:train_end_time]
+            val_df = df.loc[val_start_time:]
+            
         print(f"Train set: {train_df.index.min()} to {train_df.index.max()} ({len(train_df)} rows)")
         print(f"Val set: {val_df.index.min()} to {val_df.index.max()} ({len(val_df)} rows)")
-        print(f"Purging gap: {self.lookahead_window} minutes ({train_end_time} to {val_start_time})")
+        print(f"Purging gap: {self.lookahead_window} minutes ({train_end_time} to {val_df.index.min() if len(val_df) > 0 else 'N/A'})")
         
         X_train = train_df[feature_ordering]
         y_train = train_df['label']
@@ -508,8 +520,8 @@ if __name__ == "__main__":
     parser.add_argument("--reg-alpha", type=float, default=0.0)
     parser.add_argument("--reg-lambda", type=float, default=0.0)
     parser.add_argument("--w-wait", type=float, default=1.0)
-    parser.add_argument("--w-buy", type=float, default=1.0)
-    parser.add_argument("--w-sell", type=float, default=1.0)
+    parser.add_argument("--w-buy", type=float, default=19.0)
+    parser.add_argument("--w-sell", type=float, default=17.0)
     
     args = parser.parse_args()
     
