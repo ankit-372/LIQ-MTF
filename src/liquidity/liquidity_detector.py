@@ -20,10 +20,11 @@ class PivotDetector:
         self.bar_count = 0
         
     def add_candle(self, candle: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """
-        Adds a candle and returns any detected pivots.
-        A pivot is a dict: {'price': float, 'type': 'high'|'low', 'bar_index': int}
-        """
+        def get_h(c):
+            return float(c.get('h', c.get('high', 0.0)))
+        def get_l(c):
+            return float(c.get('l', c.get('low', 0.0)))
+
         self.window.append(candle)
         self.bar_count += 1
         
@@ -35,9 +36,9 @@ class PivotDetector:
             pivot_candle = self.window[5]
             
             # Check Pivot High
-            high = float(pivot_candle['h'])
-            left_highs = [float(c['h']) for c in self.window[0:5]]
-            right_highs = [float(c['h']) for c in self.window[6:11]]
+            high = get_h(pivot_candle)
+            left_highs = [get_h(c) for c in self.window[0:5]]
+            right_highs = [get_h(c) for c in self.window[6:11]]
             if high > max(left_highs) and high > max(right_highs):
                 pivots.append({
                     'price': high,
@@ -46,9 +47,9 @@ class PivotDetector:
                 })
                 
             # Check Pivot Low
-            low = float(pivot_candle['l'])
-            left_lows = [float(c['l']) for c in self.window[0:5]]
-            right_lows = [float(c['l']) for c in self.window[6:11]]
+            low = get_l(pivot_candle)
+            left_lows = [get_l(c) for c in self.window[0:5]]
+            right_lows = [get_l(c) for c in self.window[6:11]]
             if low < min(left_lows) and low < min(right_lows):
                 pivots.append({
                     'price': low,
@@ -106,8 +107,8 @@ class SweepDetector:
         """
         Checks if the current candle sweeps any active levels.
         """
-        high = float(candle['h'])
-        low = float(candle['l'])
+        high = float(candle.get('h', candle.get('high', 0.0)))
+        low = float(candle.get('l', candle.get('low', 0.0)))
         
         unswept_levels = []
         swept_count_this_bar = 0
@@ -157,7 +158,9 @@ class LiquidityDetector:
         
         # State
         self.current_bar_5m = 0
-        self.current_atr = 100.0  # Should be updated dynamically in a real system
+        self.current_atr = 100.0  # Will be updated dynamically below
+        self.tr_history_5m = []
+        self.prev_close_5m = None
         
     def _process_candle(self, candle: Dict[str, Any], timeframe: str):
         if timeframe == '5m':
@@ -180,6 +183,23 @@ class LiquidityDetector:
             self.sweep_detector.check_sweeps(candle, self.current_bar_5m)
             
     def _handle_5m_candle(self, candle: Dict[str, Any]):
+        high = float(candle.get('h', candle.get('high', 0.0)))
+        low = float(candle.get('l', candle.get('low', 0.0)))
+        close = float(candle.get('c', candle.get('close', 0.0)))
+        
+        if self.prev_close_5m is None:
+            tr = high - low
+        else:
+            tr = max(high - low, abs(high - self.prev_close_5m), abs(low - self.prev_close_5m))
+            
+        self.prev_close_5m = close
+        self.tr_history_5m.append(tr)
+        if len(self.tr_history_5m) > 14:
+            self.tr_history_5m.pop(0)
+            
+        if self.tr_history_5m:
+            self.current_atr = sum(self.tr_history_5m) / len(self.tr_history_5m)
+            
         self._process_candle(candle, '5m')
         
     def _handle_1h_candle(self, candle: Dict[str, Any]):

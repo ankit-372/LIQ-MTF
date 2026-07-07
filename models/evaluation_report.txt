@@ -1,0 +1,48 @@
+=== CLASSIFICATION REPORT ===
+              precision    recall  f1-score   support
+
+           0     0.9180    0.9839    0.9498    607899
+           1     0.3046    0.0678    0.1109     31288
+           2     0.2829    0.1239    0.1724     34385
+
+    accuracy                         0.8974    673572
+   macro avg     0.5018    0.3919    0.4110    673572
+weighted avg     0.8571    0.8974    0.8711    673572
+
+=== CONFUSION MATRIX ===
+[[598100   2813   6986]
+ [ 25350   2120   3818]
+ [ 28097   2026   4262]]
+
+=== FEATURE IMPORTANCE (GAIN) ===
+               feature   importance
+         volatility_20 1.005796e+07
+       agg_trade_count 2.537794e+05
+    liquidity_below_1d 2.193347e+05
+             sma_ratio 1.544427e+05
+        dist_liq_up_5m 1.370467e+05
+     dist_liq_below_5m 1.167050e+05
+    liquidity_below_4h 1.114995e+05
+       liquidity_up_1d 8.238196e+04
+        nearest_liq_1d 7.960239e+04
+       liquidity_up_1h 7.930551e+04
+       liquidity_up_4h 7.441570e+04
+    liquidity_below_1h 5.608175e+04
+        nearest_liq_1h 3.114336e+04
+        nearest_liq_4h 3.029958e+04
+    liquidity_below_5m 2.967203e+04
+        nearest_liq_5m 2.388481e+04
+                  high 2.054305e+04
+       liquidity_up_5m 1.519272e+04
+              agg_vwap 1.120847e+04
+                   low 9.316775e+03
+                 close 8.622070e+03
+                 count 6.208488e+03
+                  open 3.332335e+03
+      taker_buy_volume 2.523388e+03
+            agg_volume 1.174474e+03
+taker_buy_quote_volume 4.609310e+02
+          quote_volume 2.607040e+02
+               log_ret 0.000000e+00
+     buyer_maker_ratio 0.000000e+00
+                volume 0.000000e+00
