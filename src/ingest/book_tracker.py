@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from src.core import event_bus
 
 
 @dataclass
@@ -66,5 +67,11 @@ class BookTracker:
             "spread_bps": snapshot.spread_bps,
 
         }
+
+        # Publish through Event Bus
+        event_bus.publish(
+            "BOOK_SNAPSHOT_READY",
+            event
+        )
 
         return event

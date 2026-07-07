@@ -24,6 +24,7 @@ def publish(event_name: str, data: Any = None) -> None:
         for callback in _subscribers[event_name]:
             callback(data)
             
+
     for callback in _global_subscribers:
         callback(event_name, data)
 

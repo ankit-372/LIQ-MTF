@@ -1,4 +1,4 @@
-from book_tracker import BookTracker
+from src.ingest.book_tracker import BookTracker
 
 tracker = BookTracker()
 
