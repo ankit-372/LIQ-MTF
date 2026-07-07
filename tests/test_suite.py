@@ -131,7 +131,7 @@ class L5AgentTests(unittest.TestCase):
 
     def tearDown(self):
         # Unsubscribe database listeners to prevent test interference
-        EventBus._listeners.clear()
+        EventBus.clear()
         
         for db in [self.test_journal_db, self.test_matcher_db]:
             if os.path.exists(db):
@@ -312,7 +312,7 @@ class L5ExecutorTests(unittest.TestCase):
         EventBus.subscribe("TRADE_CLOSED", on_close)
 
     def tearDown(self):
-        EventBus._listeners.clear()
+        EventBus.clear()
 
     # --- L5 Executor Tests (8 required) ---
     def test_paper_fill_buy_position(self):
