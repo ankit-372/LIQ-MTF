@@ -1,237 +1,142 @@
-# Level 4 Model Trainer & Predictor Module (BTCUSDT)
+# 🚀 LIQ-MTF: Autonomous Liquidity & Multi-Timeframe Algorithmic Trading System
 
-This repository contains the **Level 4 Multiclass LightGBM Model Trainer, Predictor Engine, and Backtest Simulation Framework** designed for BTCUSDT high-resolution algorithmic trading.
-
-All implementations in this module adhere strictly to memory-safe chunked processing, lookahead-purged time series splitting, dynamic indicator computation, and schema-validated deterministic inference.
+LIQ-MTF is an enterprise-grade, fully integrated autonomous trading system designed for **BTCUSDT Futures** trading. It implements a 8-layer decoupled pipeline combining real-time WebSocket market data ingestion, dynamic multi-timeframe indicator engineering, structural liquidity map detection, LightGBM machine learning predictions, a learning-based 10-check risk engine, and order routing via Paper and Live executors.
 
 ---
 
-## 📂 1. Repository File Structure & Component Overview
+## 📐 1. Pipeline Architecture Diagram
 
-| File / Directory | Type | Description |
-| :--- | :--- | :--- |
-| **[src/trainer.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/trainer.py)** | Script | Primary model training module. Handles chunked memory aggregation of high-resolution trade data, Triple Barrier Labeling, time-purged splitting, and LightGBM model fitting. |
-| **[src/predictor.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/predictor.py)** | Module | Inference engine. Loads the trained booster, validates column schemas, computes indicators on-the-fly, applies confidence thresholding, and projects TP/SL levels. |
-| **[src/scenario.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/scenario.py)** | Module | Packages the current market tick and prediction values into a frozen, read-only 25-field scenario snapshot. |
-| **[src/pattern_matcher.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/pattern_matcher.py)** | Module | Interfaces with SQLite to find past signals matching the current scenario and returns win_rate and expectancy. |
-| **[src/portfolio.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/portfolio.py)** | Module | Tracks open positions, session realized P&L, consecutive losing streaks, and running drawdown from peak balance. |
-| **[src/risk_rules.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/risk_rules.py)** | Module | Risk Engine that runs 10 sequential checks to compute position sizing modifiers, apply overrides, floor sizes at 10%, and trigger execution. |
-| **[src/paper_executor.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/paper_executor.py)** | Module | Simulated exchange executor. Handles tick-level fills, Stop Loss/Take Profit hits, MFE/MAE calculations, and tracks virtual counterfactual trades for overridden signals. |
-| **[src/live_executor.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/live_executor.py)** | Module | Live exchange executor. Interacts with Binance Futures REST API to place entry and bracket TP/SL orders, polls fills, and triggers Telegram bot alerts on execution failure. |
-| **[src/circuit_breaker.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/circuit_breaker.py)** | Module | Safety firewall. Manages auto-resuming halts on SL streaks or rejections, handles latency disconnect checks, and executes hard locks with emergency liquidations on critical drawdown (>5%). |
-| **[src/journal.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/journal.py)** | Module | SQLite ledger manager (`journal.db`). Logs every decision snapshot, signal, and execution outcome (exit prices, timing, realized P&L, excursion metrics). |
-| **[src/shared/feature_registry.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/shared/feature_registry.py)** | Module | Single source of truth registering all 30 features and ordering expected by the model. |
-| **[src/shared/event_bus.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/src/shared/event_bus.py)** | Module | Central Event Bus mediating system events (e.g. `ML_SIGNAL_GENERATED`, `SCENARIO_CREATED`, `AGENT_DECISION_MADE`). |
-| **[models/](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/models)** | Directory | Stores the active trained booster (`model.txt`), feature column ordering (`features_order.json`), run parameters (`metadata.json`), and evaluation metrics (`evaluation_report.txt`). |
-| **[cache/](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/cache)** | Directory | Caches aligned 1-minute features (`BTCUSDT_1m_aggregated_features.parquet`) generated from klines, trades, and liquidity maps (ignored in Git). |
-| **[tests/validate_trainer_predictor.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/validate_trainer_predictor.py)** | Script | End-to-end integration test suite verifying trainer pipelines, schema validation strictness, and deterministic prediction outputs on subset data. |
-| **[tests/simulate_backtest.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/simulate_backtest.py)** | Script | Historical backtester evaluating trade execution, Win Rate, Net P&L, and Profit Factor across custom confidence thresholds. |
-| **[tests/tune_hyperparameters.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/tune_hyperparameters.py)** | Script | Automated grid search script evaluating class weights (`w-buy`, `w-sell`), tree depths, and leaves directly on validation dataset cache. |
-| **[tests/test_agent_risk_pipeline.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/test_agent_risk_pipeline.py)** | Script | Integration script simulating scenario packaging, pattern queries, portfolio tracking, and risk check executions. |
-| **[tests/test_execution_safety_pipeline.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/test_execution_safety_pipeline.py)** | Script | Integration script simulating and verifying simulated fills, MFE/MAE tracking, SQLite database journaling, and multi-level circuit breaker safety halts. |
-| **[tests/test_suite.py](file:///g:/.shortcut-targets-by-id/1X1yx5zBlLBvjGIqomOuobRScrBJo9jEA/Binance-Vision-Data/development/github/tests/test_suite.py)** | Script | Complete unit test suite containing 27 detailed tests for L4 predictor, L5 Agent, and L5 Executor modules. |
-
----
-
-## 🧠 2. Model Architecture & Methodology
-
-### A. Target Pair & Data Inputs
-* **Symbol**: `BTCUSDT`
-* **Resolution**: 1-minute contiguous blocks.
-* **Input Streams**: 1m Klines MASTER, 5m Liquidity Hierarchy Maps, and 64GB Enriched `aggTrades` (3.28 billion trades).
-
-### B. Triple Barrier Method (TBM) Labeling
-Labels are generated using a sliding window search over a 60-minute lookahead window with 1.0% Take Profit (TP) and 1.0% Stop Loss (SL):
-* **`0 = WAIT`**: Neither barrier is crossed within 60 minutes (vertical barrier timeout).
-* **`1 = BUY`**: Upper barrier (+1.0%) is crossed before lower barrier (-1.0%).
-* **`2 = SELL`**: Lower barrier (-1.0%) is crossed before upper barrier (+1.0%).
-
-### C. Feature Engineering (30 Features)
-The model trains on 30 features combining order book liquidity structures, trade flow imbalances, and price dynamics:
-1. **Trade Flow**: `agg_trade_count`, `agg_volume`, `agg_vwap`, `buyer_maker_ratio`, `taker_buy_volume`, `taker_buy_quote_volume`.
-2. **Order Book Liquidity Hierarchy**: `liquidity_up_5m`, `liquidity_below_5m`, `liquidity_up_1h`, `liquidity_below_1h`, `liquidity_up_4h`, `liquidity_below_4h`, `liquidity_up_1d`, `liquidity_below_1d`, `nearest_liq_5m`, `nearest_liq_1h`, `nearest_liq_4h`, `nearest_liq_1d`.
-3. **Engineered Indicators**: `log_ret`, `volatility_20` (rolling std), `sma_ratio` (`close / sma_20`), `dist_liq_up_5m`, `dist_liq_below_5m`.
-
-### D. Time-Series Purging
-To eliminate lookahead data leakage during training, dataset splits are strictly chronological (80% train, 20% validation) separated by a 60-minute purging gap equal to the lookahead window.
-
----
-
-## 🚀 3. How to Execute the Scripts
-
-All commands should be executed from the repository root directory (`development/github/`).
-
-### 1. Run End-to-End Integration Tests
-Validates feature alignment, model compilation, schema reordering, and predictor validation error handling on a fast 5 row-group test subset:
-```bash
-python -m tests.validate_trainer_predictor
-```
-
-### 2. Train the Official Model
-Train the LightGBM multiclass classifier on full history (caches feature tables automatically for subsequent fast runs):
-```bash
-# Default baseline training
-python -m src.trainer
-
-# Train with optimized class weights for handling dataset imbalance (Recommended Setup)
-python -m src.trainer --w-buy 2.5 --w-sell 2.5
-```
-
-### 3. Run Hyperparameter Grid Search
-Explore tree architectures and class weighting setups directly on the validation dataset cache:
-```bash
-python -m tests.tune_hyperparameters
-```
-
-### 4. Run Backtest Simulation & Evaluation
-Simulate historical trades on the time-purged validation set across custom confidence thresholds:
-```bash
-# Run backtest with recommended 0.50 confidence threshold on weighted model
-python -m tests.simulate_backtest --confidence 0.50 --tp 0.01 --sl 0.01
-```
-
-### 5. Run Agent Risk Pipeline Simulation
-Verify the end-to-end agent decision pipeline: scenario generation, SQLite pattern matches, portfolio tracking, and risk rules checks:
-```bash
-python -m tests.test_agent_risk_pipeline
-```
-
-### 6. Run Execution & Safety Pipeline Simulation
-Verify simulated fills, MFE/MAE excursions, database journaling, counterfactual logging, and multi-level circuit breaker safety blocks:
-```bash
-python -m tests.test_execution_safety_pipeline
-```
-
-### 7. Run Comprehensive Unit Test Suite
-Execute all 27 unit tests verifying model loading, schemas, agent risk parameters, portfolio tracking, SQLite journaling, paper trading, and circuit breaker logic:
-```bash
-python -m tests.test_suite
-```
-
----
-
-## 🔗 4. How to Attach & Use `predictor.py` in an Operational Pipeline
-
-The `ModelPredictor` class inside `src/predictor.py` is designed to plug directly into an operational trading or live execution pipeline.
-
-### Step-by-Step Integration Code Example
-
-```python
-import pandas as pd
-from src.predictor import ModelPredictor
-
-# 1. Initialize the Predictor engine (loads model.txt and features_order.json once at startup)
-predictor = ModelPredictor(
-    model_dir="models",
-    confidence_threshold=0.50, # 50% minimum probability to trigger signals
-    tp_threshold=0.01,         # 1.0% Take Profit level
-    sl_threshold=0.01          # 1.0% Stop Loss level
-)
-
-# 2. Ingest live market candle update from your streaming pipeline / websocket
-# (Requires standard price columns and liquidity boundaries)
-live_market_data = pd.DataFrame([{
-    'open': 84400.0,
-    'high': 84550.0,
-    'low': 84350.0,
-    'close': 84500.0,
-    'volume': 150.5,
-    'quote_volume': 12717250.0,
-    'count': 1200,
-    'taker_buy_volume': 80.2,
-    'taker_buy_quote_volume': 6776900.0,
-    'agg_trade_count': 1150,
-    'agg_volume': 148.0,
-    'agg_vwap': 84490.0,
-    'buyer_maker_ratio': 0.45,
-    'nearest_liq_5m': 84200.0, 'nearest_liq_1h': 84000.0, 'nearest_liq_4h': 83500.0, 'nearest_liq_1d': 82000.0,
-    'liquidity_up_5m': 85000.0, 'liquidity_below_5m': 84000.0,
-    'liquidity_up_1h': 85500.0, 'liquidity_below_1h': 83800.0,
-    'liquidity_up_4h': 86000.0, 'liquidity_below_4h': 83000.0,
-    'liquidity_up_1d': 88000.0, 'liquidity_below_1d': 81000.0,
-}])
-
-# 3. Generate predictions
-# Predictor automatically computes missing technical indicators (volatility_20, sma_ratio, etc.)
-# and reorders columns to match model expectations exactly.
-results = predictor.predict(live_market_data)
-
-# 4. Extract execution signal and parameters
-latest_signal = results.iloc[-1]
-signal_type = latest_signal['signal']        # 'BUY', 'SELL', or 'WAIT'
-confidence  = latest_signal['confidence']    # Probability score
-tp_price    = latest_signal['take_profit']    # Projected TP price level
-sl_price    = latest_signal['stop_loss']      # Projected SL price level
-
-print(f"Signal: {signal_type} | Confidence: {confidence:.4f}")
-
-# 5. Route order parameters to exchange execution engine
-if signal_type in ["BUY", "SELL"]:
-    print(f"EXECUTE ORDER: Type={signal_type}, Limit={live_market_data.iloc[-1]['close']}, TP={tp_price:.2f}, SL={sl_price:.2f}")
-else:
-    print("STATUS: Standing by (WAIT)...")
-```
-
----
-
-## 🎛️ 5. Decoupled Event-Driven Decision & Execution Pipeline
-
-The execution architecture utilizes a pub-sub model centered around the central `EventBus` (`src/shared/event_bus.py`) to maintain strict separation of concerns between prediction, risk checks, safety circuit breakers, logging, and order routing:
-
-### A. Pipeline Event Flow Diagram
+The system coordinates events asynchronously across all 8 layers using a central, memory-safe Event Bus:
 
 ```mermaid
 graph TD
-    A[Price & Order Book Feed] -->|Trigger| B[ModelPredictor]
-    B -->|Publish ML_SIGNAL_GENERATED| C[ScenarioManager]
-    C -->|Aggregate & Freeze Snapshot| D[SCENARIO_CREATED Event]
-    D -->|Consume| E[PatternMatcher & RiskEngine]
-    E -->|Query SQLite History| F[Pattern Expectancy Stats]
-    E -->|Run 10 Risk Checks| G[AGENT_DECISION_MADE Event]
-    G -->|Approved Trade| H[Paper/Live Executors]
-    G -->|Overridden/Blocked Trade| I[Journal Log & Counterfactual Tracker]
-    H -->|Position Entry & Bracket Orders| J[Excursion Tracking Loop]
-    J -->|SL/TP Hit or Timeout| K[TRADE_CLOSED Event]
-    K -->|Halt Check / Drawdown Liquidate| L[CircuitBreaker]
-    K -->|PnL Outcome Update| M[JournalManager]
+    A["L1: Binance WebSockets (ws_manager.py)"] -->|Raw Trades/Book/Klines| B["CandleBuilder & OrderFlow (ingest/)"]
+    B -->|CANDLE_CLOSED_5M & FLOW_SNAPSHOT_READY| C["FeatureAssembler (features/)"]
+    D["L3: LiquidityDetector (liquidity/)"] -->|Unswept Levels / Distances| C
+    C -->|FEATURES_READY (45 Features)| E["L4: ModelPredictor (predictor.py)"]
+    E -->|ML_SIGNAL_GENERATED (BUY/SELL/WAIT)| F["L5/L6: DecisionAgent Coordinator (agent.py)"]
+    F -->|10 Risk Check Evaluation| G["RiskEngine (risk_rules.py)"]
+    H["L8: CircuitBreaker"] -.->|Override Firewall| G
+    G -->|AGENT_DECISION_MADE| I["L7: JournalManager (journal.py)"]
+    G -->|AGENT_DECISION_MADE| J["L6: PaperExecutor / LiveExecutor"]
 ```
-
-### B. Event Definitions & Payload Schemas
-*   **`ML_SIGNAL_GENERATED`**: Fired when a new prediction is made.
-    *   *Payload*: `{"market_tick": dict, "ml_prediction": dict}`
-*   **`SCENARIO_CREATED`**: Fired when a frozen snapshot is generated.
-    *   *Payload*: `{"scenario": MappingProxyType}` (25 fields covering OHLC, volume, indicators, book liquidity, trend, signal, confidence)
-*   **`AGENT_DECISION_MADE`**: Fired when position sizing and overrides are finalized.
-    *   *Payload*: `{"trade_id": UUID, "timestamp": int, "symbol": str, "signal": str, "base_size": float, "final_size": float, "override_triggered": bool, "override_reason": str, "checks_evaluated": list, "scenario": dict}`
-*   **`TRADE_CLOSED`**: Fired on live or simulated trade completions.
-    *   *Payload*: `{"trade_id": UUID, "symbol": str, "side": str, "entry_price": float, "exit_price": float, "exit_time": int, "exit_reason": str, "realized_pnl": float, "mfe": float, "mae": float, "is_counterfactual": bool}`
-*   **`API_REJECTION`**: Fired on REST API errors to monitor execution health.
-    *   *Payload*: `{"timestamp": int, "reason": str}`
-*   **`WS_HEARTBEAT`**: Fired on WebSocket updates to track latency.
-    *   *Payload*: `{"latency_ms": float}`
 
 ---
 
-## 📊 6. Benchmark Performance & Validation Results
+## 📂 2. Repository File Structure
 
-The model was evaluated on `673,572` contiguous 1-minute validation rows spanning from `Feb 13, 2025` to `May 26, 2026` (~1.3 years).
+```
+src/
+├── main.py                     # ◄ System Entrypoint & Pipeline wiring
+├── predictor.py                # ◄ L4 Model Predictor & PredictorRunner
+├── trainer.py                  # ◄ L4 LightGBM Model Trainer
+├── agent.py                    # ◄ L5/L6 Decision Agent & Exec coordinator
+├── risk_rules.py               # ◄ L5 10-Check Risk Engine
+├── portfolio.py                # ◄ L5 Portfolio Tracker
+├── paper_executor.py           # ◄ L6 Paper/Simulated Executor
+├── live_executor.py            # ◄ L6 Live Binance REST Executor
+├── circuit_breaker.py          # ◄ L8 Safety Firewall & Halts
+├── journal.py                  # ◄ L7 SQLite Decision Journal
+├── scenario.py                 # ◄ L5 Scenario Snapshot Builder
+│
+├── core/                       # ◄ Central Framework
+│   ├── event_bus.py            # Asynchronous Event Broker
+│   ├── config.py               # Settings & Environment Loader
+│   ├── logger.py               # JSONL Observability Logging
+│   ├── alerter.py              # Telegram Alerts
+│   └── heartbeat.py            # L8 Component Ping Daemon
+│
+├── ingest/                     # ◄ L1 WebSocket Ingestion
+│   ├── ws_manager.py           # Connection Multiplexer & Latency Ping
+│   ├── candle_builder.py       # Live Kline Aggregator
+│   ├── book_tracker.py         # Spread & Order Book Tracker
+│   └── order_flow.py           # Net delta & CVD Imbalances
+│
+├── liquidity/                  # ◄ L3 Structural Liquidity Map
+│   └── liquidity_detector.py   # Pivots, clustering, sweeps, dynamic ATR
+│
+├── features/                   # ◄ L2 Multi-Timeframe Feature Assembler
+│   ├── feature_assembler.py    # 45-feature Orchestrator
+│   └── indicator_engine.py     # Deques, ATR, RSI, EMA, MACD, BB
+│
+└── shared/
+    └── feature_registry.py     # Single source of truth for 45 features
+```
 
-### A. Baseline Model (Unweighted) Across Thresholds
+---
 
-| Metric | Conf: 0.55 | Conf: 0.50 | Conf: 0.45 | Conf: 0.40 |
-| :--- | :---: | :---: | :---: | :---: |
-| **Total Trades** | 21 | 1 | 108 | 1,668 |
-| **Win Rate** | 80.95% | 0.00% | **60.19%** | 49.22% |
-| **Net P&L** | +3.43% | -1.00% | **+23.92%** | -10.02% |
-| **Profit Factor** | 5.68 | 0.00 | **1.60** | 0.99 |
+## 🛠️ 3. Layer-by-Layer Components
 
-### B. Optimized Balanced Deployment (`Balanced 1:2.5`)
+### 🛰️ L1: Ingestion & WSManager
+*   **Multiplexed Connection**: Combines `aggTrade`, `bookTicker`, `kline_5m`, and multiplexes `kline_1h/4h` into a single stream, minimizing Binance connection counts to exactly 4.
+*   **Latency Monitoring**: Publishes `WS_HEARTBEAT` containing computed round-trip network latency on every ping.
+*   **Heartbeat Pings**: Sends periodic system pings (`ws1` to `ws4`) to the heartbeat monitor to prevent connection drops.
 
-Retrained with class weights (`w-buy 2.5 --w-sell 2.5`) to penalize minority class misclassification and evaluated at `--confidence 0.50`:
+### 📊 L2: Feature Assembler & Indicator Engine
+*   **45-Feature Matrix**: Compiles all indicator, order flow, liquidity, and derived time components in the exact ordering required by the predictor.
+*   **Indicator Engine**: Uses size-300 sliding deques to calculate dynamic multi-timeframe indicators (`5m`, `1h`, `4h`) including ATR, RSI, EMA crosses, MACD histograms, and Bollinger Bands.
+*   **Volatility & Calendar**: Computes deterministic sine/cosine waves for hour/day calendar markers and encodes volatility regimes based on the ATR ratio.
 
-* **Total Trades Executed**: 79 trades (all SELLs)
-* **Win Rate**: **67.09%** (53 wins, 26 losses/flat)
-* **Exit Breakdown**: 88.6% Timeout, 10.1% Take Profit, 1.3% Stop Loss
-* **Net P&L**: **+12.80%**
-* **Profit Factor**: **2.82** (Top-tier signal accuracy, 2.8x more profit than loss)
-* **Average P&L per Trade**: **+0.1620%**
+### 🧲 L3: Liquidity Map Engine
+*   **Pivot Detection**: Identifies pivot highs and lows using a 5-bar lag verification window (lag = 25 minutes on 5m candles).
+*   **Dynamic Clustering**: Clusters levels within `0.08 × ATR` into a confluence zone and filters new levels with a `0.70 × ATR` buffer.
+*   **Sweep Detection**: Triggers `LEVEL_SWEPT` events if candle highs or lows pierce active levels.
+
+### 🧠 L4: LightGBM Model Trainer & Predictor
+*   **Triple Barrier Labeling**: Labels training datasets based on a 60-minute lookahead: BUY (1) if +1.0% is hit first, SELL (2) if -1.0% is hit first, WAIT (0) if timeout expires.
+*   **Time-Purged Splits**: Splits data chronologically: Training up to June 2025, Validation July-Dec 2025, using a 60-minute purge gap to eliminate lookahead leakage.
+*   **Balanced Class Weights**: Fixes minority recall imbalance using inverse frequency weighting: `wait=1.0`, `buy=19.0`, `sell=17.0`.
+
+### ⚡ L5/L6: Decision Agent & Execution Coordinator
+*   **Unified Master Coordinator**: Creates `DecisionAgent` to orchestrate events, log logs to journal, and direct execution outcomes directly without decoupled bus overhead.
+*   **10-Check Sequential Rules**:
+    1.  *Scenario Win Rate (Learning)*: Checks pattern matching success rate.
+    2.  *Trend Alignment (Learning)*: Queries journal database for counter-trend win rates.
+    3.  *Liquidity Proximity (Learning)*: Overrides trade if support/resistance is within 0.1%.
+    4.  *Order Flow Confirmation (Learning)*: Modifies size based on delta.
+    5.  *Spread Safety (Static)*: Blocks trade if spread > 5 bps.
+    6.  *Volatility (Static)*: Halves size and tightens SL if ATR spikes.
+    7.  *Loss Streak (Static)*: Halves size at 3 losses, blocks trade at 4 losses.
+    8.  *Drawdown (Static)*: Blocks trade if session drawdown >= 5.0%.
+    9.  *Open Position Limit (Static)*: Restricts active trades to 2.
+    10. *Time Filter (Static)*: Reduces size during low liquidity hours (22:00 to 02:00 UTC).
+*   **Binance Futures Formatting**: Converts USD trade size to BTC contract size (`usd_size / entry_price`) rounded to 3 decimals, protecting against exchange API rejections.
+
+---
+
+## 🚀 4. Execution & Commands
+
+All commands must be executed from the repository root directory:
+
+### Run the System in Paper Mode
+```powershell
+# Set Python path and run main entrypoint
+$env:PYTHONPATH="."
+python src/main.py
+```
+
+### Run the Comprehensive Test Suite
+Executes all 39 unit tests for L1-L8 components:
+```powershell
+python -m pytest
+```
+
+### Train the ML Model
+Trains the LightGBM model on the historical parquet datasets:
+```powershell
+python -m src.trainer --tp 0.01 --sl 0.01 --lookahead 60
+```
+
+### Run Risk Engine Pipeline Simulation
+```powershell
+python tests/test_agent_risk_pipeline.py
+```
+
+---
+
+## 📊 5. Event Specifications
+
+*   `SCENARIO_CREATED`: Fired when a frozen snapshot is generated.
+*   `AGENT_DECISION_MADE`: Fired when position sizing and overrides are finalized.
+*   `TRADE_CLOSED`: Fired on live or simulated trade completions.
+*   `FLOW_SNAPSHOT_READY`: Fired on order flow updates.
