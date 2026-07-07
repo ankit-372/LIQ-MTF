@@ -3,16 +3,31 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Python Virtual Environments
+# Python virtual environments
 .venv/
 venv/
 ENV/
 env/
 
-# Other
+# Runtime secrets and local state
 .env
 *.pkl
 *.db
 logs/*.jsonl
 .pytest_cache/
 .ruff_cache/
+
+# Caches and large files generated during execution
+cache/
+cache_test/
+models_test/
+*.parquet
+
+# IDE files
+.vscode/
+.idea/
+
+# Local OS files
+desktop.ini
+.DS_Store
+Thumbs.db
