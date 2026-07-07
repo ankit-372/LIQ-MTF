@@ -13,8 +13,8 @@ graph TD
     A["L1: Binance WebSockets (ws_manager.py)"] -->|Raw Trades/Book/Klines| B["CandleBuilder & OrderFlow (ingest/)"]
     B -->|CANDLE_CLOSED_5M & FLOW_SNAPSHOT_READY| C["FeatureAssembler (features/)"]
     D["L3: LiquidityDetector (liquidity/)"] -->|Unswept Levels / Distances| C
-    C -->|FEATURES_READY (45 Features)| E["L4: ModelPredictor (predictor.py)"]
-    E -->|ML_SIGNAL_GENERATED (BUY/SELL/WAIT)| F["L5/L6: DecisionAgent Coordinator (agent.py)"]
+    C -->|"FEATURES_READY (45 Features)"| E["L4: ModelPredictor (predictor.py)"]
+    E -->|"ML_SIGNAL_GENERATED (BUY/SELL/WAIT)"| F["L5/L6: DecisionAgent Coordinator (agent.py)"]
     F -->|10 Risk Check Evaluation| G["RiskEngine (risk_rules.py)"]
     H["L8: CircuitBreaker"] -.->|Override Firewall| G
     G -->|AGENT_DECISION_MADE| I["L7: JournalManager (journal.py)"]
