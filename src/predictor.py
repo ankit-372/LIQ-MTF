@@ -184,6 +184,32 @@ class ModelPredictor:
         
         return res_df
 
+class PredictorRunner:
+    def __init__(self, predictor: ModelPredictor):
+        self.predictor = predictor
+        from src.shared.event_bus import EventBus
+        EventBus.subscribe("FEATURES_READY", self.on_features_ready)
+        print("PredictorRunner: Subscribed to 'FEATURES_READY'")
+        
+    def on_features_ready(self, data: dict):
+        features = data.get("features", {})
+        if not features:
+            return
+        df = pd.DataFrame([features])
+        try:
+            res_df = self.predictor.predict(df)
+            row = res_df.iloc[0]
+            from src.shared.event_bus import EventBus
+            EventBus.publish("ML_SIGNAL_GENERATED", {
+                "market_tick": features,
+                "ml_prediction": {
+                    "signal": row["signal"],
+                    "confidence": row["confidence"]
+                }
+            })
+        except Exception as e:
+            print(f"[PredictorRunner Error] Prediction failed: {e}")
+
 if __name__ == "__main__":
     # Test instantiation
     try:
