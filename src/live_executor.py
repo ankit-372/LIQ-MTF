@@ -60,10 +60,18 @@ class LiveExecutor:
             tp_price = close_p * (1.0 - tp_threshold)
             sl_price = close_p * (1.0 + sl_threshold)
             
+        # Convert USD size to BTC contract size before placing order
+        btc_quantity = final_size / close_p
+        # Format to Binance decimals (BTC Futures accepts up to 3 decimals)
+        formatted_qty = round(btc_quantity, 3) 
+        if formatted_qty < 0.001:
+            print(f"[LiveExecutor Error] Formatted quantity {formatted_qty} is below Binance minimum of 0.001 BTC")
+            return
+            
         # Run execution in a separate thread to avoid blocking event loop
         thread = threading.Thread(
             target=self.execute_trade_flow,
-            args=(trade_id, symbol, signal, final_size, close_p, tp_price, sl_price)
+            args=(trade_id, symbol, signal, formatted_qty, close_p, tp_price, sl_price)
         )
         thread.daemon = True
         thread.start()
